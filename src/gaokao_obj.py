@@ -1,10 +1,10 @@
 """
 the entrance of the system for gaokao
 """
-import Method
-from DataHelper import DatasetLoader
-from evaluate import evaluate
-from utils import mp_utils,file_utils
+import src.Method.Method as Method
+from src.dataset.DataHelper import DatasetLoader
+from src.evaluate.evaluate import evaluate
+from src.utils import mp_utils,file_utils
 from pathlib import Path, PosixPath
 from functools import partial
 import os
@@ -61,7 +61,7 @@ TEMPLATE = {
     },
 }
 
-def gaokao_obj_run(subset_name:str,method:str,model_name="DeepSeek-V2.5",log_fold:PosixPath=Path("log"),dl:DatasetLoader = DatasetLoader()):
+def gaokao_obj_run(subset_name:str,method:str,model_name="DeepSeek-V2.5",log_fold:PosixPath=Path(__file__).parent/"logs",dl:DatasetLoader = DatasetLoader()):
     dataset = dl.get_dataset("gaokao_obj")
     test_dataset = dataset[subset_name]["test"]
     command = {
@@ -77,14 +77,16 @@ def gaokao_obj_run(subset_name:str,method:str,model_name="DeepSeek-V2.5",log_fol
     # prepare for run
     wrapper = None
     if method == "cot":
-        wrapper = partial(Method.plain,system_prompt=TEMPLATE[subset_name]["system_prompt"],command=command,input_template=TEMPLATE[subset_name]["cot_prompt"][0],input_template_keys=TEMPLATE[subset_name]["cot_prompt"][1])
+        wrapper = partial(Method.plain,system_prompt=TEMPLATE[subset_name]["system_prompt"],
+                          command=command,
+                          input_template=TEMPLATE[subset_name]["cot_prompt"][0],input_template_keys=TEMPLATE[subset_name]["cot_prompt"][1])
     else:
         raise ValueError(f"unknown method: {method}")
     # run
     mp_utils.get_multiple_response(wrapper,[test_dataset[idx] for idx in range(test_dataset.num_rows)],batch_size=20,store_fold_path=log_fold/"gaokao_obj"/method/f"{subset_name}.jsonl",slow=True)
     return 
         
-def gaokao_obj_test(subset_name:str,method:str,model_name="DeepSeek-V2.5",log_fold:PosixPath=Path("log"),dl:DatasetLoader = DatasetLoader()):
+def gaokao_obj_test(subset_name:str,method:str,model_name="DeepSeek-V2.5",log_fold:PosixPath=Path(__file__).parent/"log",dl:DatasetLoader = DatasetLoader()):
     dataset = dl.get_dataset("gaokao_obj")
     test_dataset = dataset[subset_name]["test"]
     data_path = log_fold/"gaokao_obj"/method/f"{subset_name}.jsonl"

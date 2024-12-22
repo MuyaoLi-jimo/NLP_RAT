@@ -5,7 +5,7 @@ preparing the dataset and evaluation matrix
 
 from datasets import load_dataset,load_from_disk,DatasetDict,Dataset
 from pathlib import Path
-from utils import file_utils
+from src.utils import file_utils
 
 class DatasetLoader:
     def __init__(self):
@@ -38,7 +38,7 @@ class DatasetLoader:
     def get_gaokao(self,is_obj=True)->DatasetDict:
         # 如果已经在本地保存
         dataset_name = "gaokao_obj" if is_obj else "gaokao_sub"
-        dataset_path = Path(__file__).parent/"dataset"/dataset_name        
+        dataset_path = Path(__file__).parent.parent.parent/"data"/"dataset"/dataset_name        
         if dataset_path.exists():
             dataset_index_path = dataset_path /"dataset_dict.json"
             dataset_index = file_utils.load_json_file(dataset_index_path)["splits"]
@@ -51,7 +51,7 @@ class DatasetLoader:
         ## 下面是第一次访问时的处理方式
         
         index_file_name = "Obj_Prompt.json" if is_obj else "Sub_Prompt.json"
-        gaokao_raw_dataset =  Path(__file__).parent/"GAOKAO-Bench"/"Bench"/ index_file_name
+        gaokao_raw_dataset =  Path(__file__).parent.parent.parent/"lib"/"GAOKAO-Bench"/"Bench"/ index_file_name
         index_data = file_utils.load_json_file(gaokao_raw_dataset)["examples"]
         dataset_dict = {}
         for i in range(len(index_data)):
@@ -60,7 +60,7 @@ class DatasetLoader:
             keyword = index_data[i]['keyword']
             subset_name = f"{keyword}-{question_type}"
             dataset_fold_type = "Objective_Questions" if is_obj else "Subjective_Questions"
-            subset_path = Path(__file__).parent/"GAOKAO-Bench"/"Data"/dataset_fold_type/f"{keyword}.json"
+            subset_path = Path(__file__).parent.parent.parent/"lib"/"GAOKAO-Bench"/"Data"/dataset_fold_type/f"{keyword}.json"
             subset_data = file_utils.load_json_file(subset_path)["example"]
             sub_ds = Dataset.from_list(subset_data)
             def preprocess(example):
@@ -82,7 +82,7 @@ class DatasetLoader:
         return dataset
      
     def get_mbpp(self)->DatasetDict:
-        dataset_path = Path(__file__).parent/"dataset"/"mbpp"
+        dataset_path = Path(__file__).parent.parent.parent/"data"/"dataset"/"mbpp"
         if dataset_path.exists():
             print(dataset_path)
             return load_from_disk(dataset_path)
@@ -109,7 +109,7 @@ class DatasetLoader:
         return dataset
     
     def get_gsm8k(self):
-        dataset_path = Path(__file__).parent/"dataset"/"gsm8k"
+        dataset_path = Path(__file__).parent.parent.parent/"data"/"dataset"/"gsm8k"
         if dataset_path.exists():
             return load_from_disk(dataset_path)
         # load from hf

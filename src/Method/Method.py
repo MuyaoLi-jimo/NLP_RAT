@@ -2,7 +2,7 @@
 API for different methods
 """
 
-from utils import api_utils
+from src.utils import api_utils
 from typing import Callable
 import random
 

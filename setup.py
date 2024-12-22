@@ -6,6 +6,6 @@ setup(
     author='jimoli',        #作者 
     description='using method cot',  #描述
     packages=find_packages(
-        exclude=["log*", "doc*", "dataset*","GAOKAO-Bench*"]
+        exclude=["logs*", "doc*", "data*","lib*"]
         ),  #你要安装的包，通过 setuptools.find_packages 找到当前目录下有哪些包 
 )

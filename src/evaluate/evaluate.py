@@ -2,9 +2,10 @@ from rich import print,console
 from tqdm import tqdm
 from typing import Dict
 import numpy as np
-from DataHelper import DatasetLoader
 from datasets import DatasetDict
 import re
+
+from src.dataset.DataHelper import DatasetLoader
 
 def evaluate(dataset_name:str,answers:dict,sub_dataset_name="",method:str="main",dataset=None):
     """Evaluate the performance using provided answers.

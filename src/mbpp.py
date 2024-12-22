@@ -1,12 +1,13 @@
 """
 the entrance of the system for mbpp
 """
-import Method
-from DataHelper import DatasetLoader
-from evaluate import evaluate,mbpp_examiner
+import src.Method.Method as Method
+from src.dataset.DataHelper import DatasetLoader
+from src.evaluate.evaluate import evaluate,mbpp_examiner
+from src.utils import file_utils,mp_utils
 from functools import partial
 from pathlib import Path, PosixPath
-from utils import file_utils,mp_utils
+
 import os
 
 
@@ -24,7 +25,7 @@ TEMPLATE = {
     "reflex_input":["Your answer is wrong. Here is the return informations: {} Please rewrite it\n\nThe new code:"],
 }
 
-def mbpp_run(method:str,log_fold:PosixPath=Path("log"),dl:DatasetLoader = DatasetLoader()):
+def mbpp_run(method:str,log_fold:PosixPath=Path(__file__).parent/"logs",dl:DatasetLoader = DatasetLoader()):
     """use llm to get the code  """
     dataset = dl.get_dataset("mbpp")
     test_dataset = dataset["test"]
@@ -59,7 +60,7 @@ def mbpp_run(method:str,log_fold:PosixPath=Path("log"),dl:DatasetLoader = Datase
     mp_utils.get_multiple_response(wrapper,[test_dataset[idx] for idx in range(test_dataset.num_rows)],batch_size=20,store_fold_path=log_fold/f"mbpp-{method}.jsonl",slow=True)
     return
     
-def mbpp_test(method:str,answers:list=None,data_fold:PosixPath=Path("log"),data_path:str=None):
+def mbpp_test(method:str,answers:list=None,data_fold:PosixPath=Path(__file__).parent/"logs",data_path:str=None):
     if answers is None:
         if data_path is None:
             data_path = data_fold / f"mbpp-{method}.jsonl"
