@@ -1,0 +1,12 @@
+functools
+shutil
+multiprocessing
+random
+rich
+tqdm
+numpy
+openai
+datasets
+langchain
+langchain_community
+
