@@ -71,6 +71,7 @@ def extract_choice_answer(model_output, question_type, answer_lenth=None):
             model_answer.append(temp[0])
 
     elif question_type == 'multi_question_choice':
+        answer_lenth = 10
         model_answer = []
         temp = re.findall(r"【答案】\s*[:：]*\s*[A-Z]", model_output)
             

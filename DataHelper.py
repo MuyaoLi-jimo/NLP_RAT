@@ -16,7 +16,6 @@ class DatasetLoader:
         """ 
         获取dataset格式的数据集
         """
-        print(self.available_dataset)
         assert dataset_name in self.available_dataset
         
         dataset = self.datasets.get(dataset_name)

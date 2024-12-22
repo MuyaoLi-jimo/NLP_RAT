@@ -19,22 +19,26 @@ TEMPLATE = {
         "cot_prompt": ["请你做一道数学选择题\n请你一步一步思考并将思考过程写在【解析】和<eoe>之间。你将从A，B，C，D中选出正确的答案，并写在【答案】和<eoa>之间。\n例如：【答案】: A <eoa>\n完整的题目回答的格式如下：\n【解析】 ... <eoe>\n【答案】 ... <eoa>\n请你严格按照上述格式作答。\n题目如下：{}",["question"]],
     },
     "2010-2022_History_MCQs-single_choice":{
+        "system_prompt": "你是一个非常优秀的高中生，正在作答一张历史试卷",
         "cot_prompt": ["请你做一道历史选择题\n请你一步一步思考并将思考过程写在【解析】和<eoe>之间。你将从A，B，C，D中选出正确的答案，并写在【答案】和<eoa>之间。\n例如：【答案】: A <eoa>\n完整的题目回答的格式如下：\n【解析】 ... <eoe>\n【答案】 ... <eoa>\n请你严格按照上述格式作答。\n题目如下：{}",["question"]],
     },
     "2010-2022_Geography_MCQs-multi_question_choice": {
+        "system_prompt": "你是一个非常优秀的高中生，正在作答一张地理试卷",
         "cot_prompt": ["请你做一道地理选择题，其中包含两到三个小题。\n请你一步一步思考。每一题你将从A，B，C，D中选出正确的答案，并写在【答案】和<eoa>之间。\n例如：（1）【答案】 A <eoa>\n（2）【答案】 B <eoa>\n请你严格按照上述格式作答。\n{}",["question"]],
     },
     "2010-2022_Political_Science_MCQs-single_choice":{
         "cot_prompt": ["请你做一道政治选择题\n请你一步一步思考并将思考过程写在【解析】和<eoe>之间。你将从A，B，C，D中选出正确的答案，并写在【答案】和<eoa>之间。\n例如：【答案】: A <eoa>\n完整的题目回答的格式如下：\n【解析】 ... <eoe>\n【答案】 ... <eoa>\n请你严格按照上述格式作答。\n题目如下：{}",["question"]],
     },
     "2010-2022_Physics_MCQs-multi_choice":{
+        "system_prompt": "你是一个非常优秀的高中生，正在作答一张物理试卷",
         "cot_prompt": ["请你做一道物理选择题。\n请你一步一步思考并将思考过程写在【解析】和<eoe>之间。你将从A，B，C，D中选出所有符合题意的答案，并写在【答案】和<eoa>之间。\n例如：【答案】 AB <eoa>\n完整的题目回答的格式如下：\n【解析】 ... <eoe>\n【答案】... <eoa>\n请你严格按照上述格式作答。\n{}",["question"]],
     },
     "2010-2022_Chemistry_MCQs-single_choice": {
-        "system_prompt": "你是一个非常优秀的高中生，正在作答一场化学考试",
+        "system_prompt": "你是一个非常优秀的高中生，正在作答一张化学试卷",
         "cot_prompt": ["请你做一道化学选择题\n请你一步一步思考并将思考过程写在【解析】和<eoe>之间。你将从A，B，C，D中选出正确的答案，并写在【答案】和<eoa>之间。\n例如：【答案】: A <eoa>\n完整的题目回答的格式如下：\n【解析】 ... <eoe>\n【答案】 ... <eoa>\n请你严格按照上述格式作答。\n题目如下：{}",["question"]],
     },
     "2010-2022_Biology_MCQs-single_choice":{
+        "system_prompt": "你是一个非常优秀的高中生，正在作答一场生物考试",
         "cot_prompt": ["请你做一道生物选择题\n请你一步一步思考并将思考过程写在【解析】和<eoe>之间。你将从A，B，C，D中选出正确的答案，并写在【答案】和<eoa>之间。\n例如：【答案】: A <eoa>\n完整的题目回答的格式如下：\n【解析】 ... <eoe>\n【答案】 ... <eoa>\n请你严格按照上述格式作答。\n题目如下：{}",["question"]],
     },
     "2010-2013_English_MCQs-single_choice": {
@@ -105,5 +109,13 @@ def gaokao_obj_test(subset_name:str,method:str,model_name="DeepSeek-V2.5",log_fo
 
 if __name__ =="__main__":
     dl = DatasetLoader()
-    #gaokao_obj_run("2010-2022_Chemistry_MCQs-single_choice",method="cot",model_name="DeepSeek-V2.5",dl=dl)
-    gaokao_obj_test("2010-2022_Chemistry_MCQs-single_choice",method="cot",model_name="DeepSeek-V2.5",dl=dl)
+    #
+    sub_tasks = [
+                    "2010-2022_Geography_MCQs-multi_question_choice",
+                    "2010-2022_Biology_MCQs-single_choice",
+                    "2010-2022_Physics_MCQs-multi_choice",
+                    "2010-2022_History_MCQs-single_choice",
+                 ]
+    for sub_task in sub_tasks:
+        gaokao_obj_run(sub_task,method="cot",model_name="DeepSeek-V2.5",dl=dl)
+        gaokao_obj_test(sub_task,method="cot",model_name="DeepSeek-V2.5",dl=dl)
