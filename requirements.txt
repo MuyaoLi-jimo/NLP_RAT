@@ -9,4 +9,4 @@ openai
 datasets
 langchain
 langchain_community
-
+sentence-transformers
