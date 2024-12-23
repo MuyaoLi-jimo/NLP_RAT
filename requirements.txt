@@ -10,4 +10,5 @@ langchain
 langchain_community
 langchain_chroma
 langchain-huggingface
+unstructured
 sentence-transformers

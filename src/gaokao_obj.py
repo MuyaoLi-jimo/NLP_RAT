@@ -5,6 +5,7 @@ import src.Method.Method as Method
 from src.dataset.DataHelper import DatasetLoader
 from src.evaluate.evaluate import evaluate
 from src.utils import mp_utils,file_utils
+from src.Method.rag import RAG_SYSTEM
 from pathlib import Path, PosixPath
 from functools import partial
 import os
@@ -61,9 +62,18 @@ TEMPLATE = {
     },
 }
 
-def gaokao_obj_run(subset_name:str,method:str,model_name="DeepSeek-V2.5",log_fold:PosixPath=Path(__file__).parent/"logs",dl:DatasetLoader = DatasetLoader()):
+RAG_SYSTEM_MAP = {
+    "2010-2022_Chemistry_MCQs-single_choice":"chemistry",
+}
+
+def get_query(inputs:dict)->str:
+    return inputs["question"]
+
+def gaokao_obj_run(subset_name:str,method:str,model_name="DeepSeek-V2.5",log_fold:str = Path("logs"),dl:DatasetLoader = DatasetLoader()):
     dataset = dl.get_dataset("gaokao_obj")
     test_dataset = dataset[subset_name]["test"]
+    store_fold_path=log_fold/"gaokao_obj"/method/f"{subset_name}.jsonl"
+    store_fold_path.parent.mkdir(parents=True,exist_ok=True)
     command = {
         "temperature":0.7,
         "max_tokens":1024,
@@ -80,13 +90,20 @@ def gaokao_obj_run(subset_name:str,method:str,model_name="DeepSeek-V2.5",log_fol
         wrapper = partial(Method.plain,system_prompt=TEMPLATE[subset_name]["system_prompt"],
                           command=command,
                           input_template=TEMPLATE[subset_name]["cot_prompt"][0],input_template_keys=TEMPLATE[subset_name]["cot_prompt"][1])
+    elif method == "rag":
+        
+        wrapper = partial(Method.rag,system_prompt=TEMPLATE[subset_name]["system_prompt"],
+                                     command=command,
+                                     input_template=TEMPLATE[subset_name]["cot_prompt"][0],input_template_keys=TEMPLATE[subset_name]["cot_prompt"][1],
+                                     get_query_fn=get_query,retriever_name=RAG_SYSTEM_MAP[subset_name])
     else:
         raise ValueError(f"unknown method: {method}")
+    
     # run
-    mp_utils.get_multiple_response(wrapper,[test_dataset[idx] for idx in range(test_dataset.num_rows)],batch_size=20,store_fold_path=log_fold/"gaokao_obj"/method/f"{subset_name}.jsonl",slow=True)
+    mp_utils.get_multiple_response(wrapper,[test_dataset[idx] for idx in range(test_dataset.num_rows)],batch_size=20,store_fold_path=store_fold_path,slow=True)
     return 
         
-def gaokao_obj_test(subset_name:str,method:str,model_name="DeepSeek-V2.5",log_fold:PosixPath=Path(__file__).parent/"log",dl:DatasetLoader = DatasetLoader()):
+def gaokao_obj_test(subset_name:str,method:str,model_name="DeepSeek-V2.5",log_fold:PosixPath=Path("logs"),dl:DatasetLoader = DatasetLoader()):
     dataset = dl.get_dataset("gaokao_obj")
     test_dataset = dataset[subset_name]["test"]
     data_path = log_fold/"gaokao_obj"/method/f"{subset_name}.jsonl"
@@ -104,20 +121,16 @@ def gaokao_obj_test(subset_name:str,method:str,model_name="DeepSeek-V2.5",log_fo
             answer.update(response[uuid])
         model_accuracy +=  answer.get("success",0)
         model_score +=  answer.get("score",0)
-
+    file_utils.dump_jsonl(file_answers,data_path)
     console.Console().log(f"total number: {total_number}, run number: {len(file_answers)}")
     console.Console().log(f"model accuracy: {model_accuracy/len(file_answers)*100:.2f}%")
     console.Console().log(f"model score: {model_score}, total score: {total_score}")
 
 if __name__ =="__main__":
     dl = DatasetLoader()
-    #
     sub_tasks = [
-                    "2010-2022_Geography_MCQs-multi_question_choice",
-                    "2010-2022_Biology_MCQs-single_choice",
-                    "2010-2022_Physics_MCQs-multi_choice",
-                    "2010-2022_History_MCQs-single_choice",
+                    "2010-2022_Chemistry_MCQs-single_choice"
                  ]
     for sub_task in sub_tasks:
-        gaokao_obj_run(sub_task,method="cot",model_name="DeepSeek-V2.5",dl=dl)
-        gaokao_obj_test(sub_task,method="cot",model_name="DeepSeek-V2.5",dl=dl)
+        #gaokao_obj_run(sub_task,method="rag",model_name="DeepSeek-V2.5",dl=dl)
+        gaokao_obj_test(sub_task,method="rag",model_name="DeepSeek-V2.5",dl=dl)

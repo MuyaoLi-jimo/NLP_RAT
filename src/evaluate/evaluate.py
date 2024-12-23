@@ -67,6 +67,9 @@ def extract_choice_answer(model_output, question_type, answer_lenth=None):
     """
     if question_type == 'single_choice':
         model_answer = []
+        answer_index = model_output.find('【答案】')
+        if answer_index > 0:
+            model_output = model_output[answer_index:]
         temp = re.findall(r'[A-D]', model_output[::-1])
         if len(temp) != 0:
             model_answer.append(temp[0])
