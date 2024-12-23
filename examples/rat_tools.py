@@ -21,7 +21,7 @@ draft_prompt = """
 revise_prompt = """
 我希望根据检索到的与问题相关的网页内容来修订答案。
 你需要检查答案是否正确。
-如果发现答案中有错误，请修改答案使其更好。
+根据网页内容，如果发现答案中有错误，请修改答案。
 如果发现有些必要的细节被忽略了，请根据相关内容添加这些细节，使答案更加合理。
 如果发现答案正确且不需要添加更多细节，直接输出原始答案即可。
 ** 重要提示 **
@@ -81,7 +81,13 @@ def get_weather(city:str):
         "city":city
     }
     response = requests.get(url=weather_url, params=params)
-    return (f"这是{city}今天和后三天的天气：\n" + json.dumps(response.json(), indent=4, ensure_ascii=False))
+    weather_str = ""
+    if response.json()["infocode"]=="10000":
+        for cast in response.json()["forecasts"][0]["casts"]:
+            weather_str += f"""日期：{cast["date"]}：日间天气：{cast["dayweather"]}，日间气温：{cast["daytemp"]}，日间风向为{cast["daywind"]}，风力{cast["daypower"]}；夜间天气：{cast["nightweather"]}，夜间气温：{cast["nighttemp"]}，夜间风向为{cast["nightwind"]}，风力{cast["nightpower"]}。\n"""
+    else:
+        weather_str = "没有检索到天气信息。"
+    return (f"根据天气预报，这是{city}今天和后三天的天气：\n" + weather_str)
 
 
 
@@ -396,7 +402,7 @@ def get_revise_answer(client:OpenAI, system_prompt:str, question, answer, web_co
                 },
                 {
                     "role": "user",
-                    "content": f"##网页内容: \n{web_content}\n\n##问题:\n {question}\n\n##答案: \n{answer}\n\n##指示: \n{revise_prompt}"
+                    "content": f"##问题:\n {question}\n\n##答案: \n{answer}\n\n##网页内容: \n{web_content}\n\n##指示: \n{revise_prompt}"
                 }
             ],
             temperature = 1.0
