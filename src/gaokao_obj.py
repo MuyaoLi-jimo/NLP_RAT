@@ -6,10 +6,48 @@ from src.dataset.DataHelper import DatasetLoader
 from src.evaluate.evaluate import evaluate
 from src.utils import mp_utils,file_utils
 from src.Method.rag import RAG_SYSTEM
+from src.Method.rat_tools import llm_split,get_query_naive,rag_retrieve
 from pathlib import Path, PosixPath
 from functools import partial
 import os
 from rich import console
+
+REFINE_PROMPT_TEMPLATE = """
+你现在正在进行一个思维链，你在刚才已经完成了前几步的思考与修改，
+现在你准备继续这个思路往下作答，并且完成了一个初稿，
+但是这个分析可能存在错误，因此我寻找了一部分资料来检验分析是否正确
+我希望你参考检索到的内容来修订这一步的分析结果。
+你需要检查回答是否正确。
+如果你发现检索到的内容是垃圾信息，直接输出原始回答即可。
+如果发现回答中有错误，请修改回答使其更好。
+如果发现有些必要的细节被忽略了，请根据相关内容添加这些细节，使回答更加合理。
+如果发现回答正确且不需要添加更多细节，直接输出原始回答即可。
+** 重要提示 **
+尽量保持修订回答中的结构
+直接输出修订后的分析。除非被要求，否则不要在修订分析中添加额外的解释或声明。
+################
+你需要作答的题目如下: {}，
+#################
+刚才你已经完成了一部分分析，并且经过了我的检验，之前你完成内容如下：{}，
+#################
+当前步，你进行了下面的分析：{}，
+#################
+但是这一步的分析可能存在错误，因此我查询了一些相关资料
+资料内容如下：{},
+"""
+REFINE_TEMPLATE_KEY =  ["question","past_thought","thought","reference"]
+
+SUMMARY_PROMPT_TEMPLATE = """ 
+你需要作答的题目如下: {}，
+#################
+刚才你已经完成了全部的【分析】，并且经过了我的检验，内容如下：{}，
+请你根据之前的分析结果来推出最终结论
+并写在【答案】和<eoa>之间。
+完整的题目回答的格式如下：\n【分析】 ... <eoe>\n【答案】 ... <eoa>\n
+请你严格按照上述格式作答。
+你要作答的题目如下：{}
+"""
+SUMMARY_TEMPLATE_KEY = ["question","refine_thoughts","question"]
 
 
 TEMPLATE = {
@@ -35,9 +73,11 @@ TEMPLATE = {
         "cot_prompt": ["请你做一道物理选择题。\n请你一步一步思考并将思考过程写在【解析】和<eoe>之间。你将从A，B，C，D中选出所有符合题意的答案，并写在【答案】和<eoa>之间。\n例如：【答案】 AB <eoa>\n完整的题目回答的格式如下：\n【解析】 ... <eoe>\n【答案】... <eoa>\n请你严格按照上述格式作答。\n{}",["question"]],
     },
     "2010-2022_Chemistry_MCQs-single_choice": {
-        "system_prompt": "你是一个非常优秀的高中生，正在作答一张化学试卷",
-        "cot_prompt": ["请你做一道化学选择题\n请你一步一步思考并将思考过程写在【解析】和<eoe>之间。你将从A，B，C，D中选出正确的答案，并写在【答案】和<eoa>之间。\n例如：【答案】: A <eoa>\n完整的题目回答的格式如下：\n【解析】 ... <eoe>\n【答案】 ... <eoa>\n请你严格按照上述格式作答。\n题目如下：{}",["question"]],
-    },
+        "system_prompt": "你是一个非常优秀的高中生，正在作答一张化学试卷，现在需要你从A，B，C，D中选出唯一正确的答案，注意，只有一个正确答案",
+        "plain_prompt":["请你做一道化学选择题\n请你直接判断答案，不要写出思考过程，并将答案写在【答案】和<eoa>之间。完整的题目回答的格式如下：\n【答案】 ... <eoa>\n请你严格按照上述格式作答。\n题目如下：{}",["question"]],
+        "cot_prompt": ["请你做一道化学选择题\n请你一步一步思考并将思考过程写在【解析】和<eoe>之间。你将从A，B，C，D中选出唯一正确的答案，并写在【答案】和<eoa>之间。\n例如：【答案】: A <eoa>\n完整的题目回答的格式如下：\n【解析】 ... <eoe>\n【答案】 ... <eoa>\n请你严格按照上述格式作答。\n题目如下：{}",["question"]],
+        "summary_prompt":["请你做一道化学选择题，题目如下: {}，你对ABCD一步一步的分析如下: A:{} B:{} C:{} D:{}\n 请根据之前几步的思考，从A，B，C，D中选出唯一正确的答案，并写在【答案】和<eoa>之间。\n回答的格式如下：：【答案】: ... <eoa>\n，再次重复题目：{}",["question","A","B","C","D","question"]]
+        },
     "2010-2022_Biology_MCQs-single_choice":{
         "system_prompt": "你是一个非常优秀的高中生，正在作答一场生物考试",
         "cot_prompt": ["请你做一道生物选择题\n请你一步一步思考并将思考过程写在【解析】和<eoe>之间。你将从A，B，C，D中选出正确的答案，并写在【答案】和<eoa>之间。\n例如：【答案】: A <eoa>\n完整的题目回答的格式如下：\n【解析】 ... <eoe>\n【答案】 ... <eoa>\n请你严格按照上述格式作答。\n题目如下：{}",["question"]],
@@ -62,6 +102,8 @@ TEMPLATE = {
     },
 }
 
+
+
 RAG_SYSTEM_MAP = {
     "2010-2022_Chemistry_MCQs-single_choice":"chemistry",
 }
@@ -69,7 +111,8 @@ RAG_SYSTEM_MAP = {
 def get_query(inputs:dict)->str:
     return inputs["question"]
 
-def gaokao_obj_run(subset_name:str,method:str,model_name="DeepSeek-V2.5",log_fold:str = Path("logs"),dl:DatasetLoader = DatasetLoader()):
+
+def gaokao_obj_run(subset_name:str,method:str,model_name="DeepSeek-V2.5",log_fold:str = Path("logs"),dl:DatasetLoader = DatasetLoader(),test:bool=False):
     dataset = dl.get_dataset("gaokao_obj")
     test_dataset = dataset[subset_name]["test"]
     store_fold_path=log_fold/"gaokao_obj"/method/f"{subset_name}.jsonl"
@@ -86,20 +129,44 @@ def gaokao_obj_run(subset_name:str,method:str,model_name="DeepSeek-V2.5",log_fol
         })
     # prepare for run
     wrapper = None
-    if method == "cot":
-        wrapper = partial(Method.plain,system_prompt=TEMPLATE[subset_name]["system_prompt"],
-                          command=command,
+    if method == "plain":
+        wrapper = partial(Method.plain,command=command,
+                          system_prompt=TEMPLATE[subset_name]["system_prompt"],
+                          input_template=TEMPLATE[subset_name]["plain_prompt"][0],input_template_keys=TEMPLATE[subset_name]["plain_prompt"][1])
+    elif method == "cot":
+        wrapper = partial(Method.plain,command=command,
+                          system_prompt=TEMPLATE[subset_name]["system_prompt"],
                           input_template=TEMPLATE[subset_name]["cot_prompt"][0],input_template_keys=TEMPLATE[subset_name]["cot_prompt"][1])
     elif method == "rag":
         
-        wrapper = partial(Method.rag,system_prompt=TEMPLATE[subset_name]["system_prompt"],
-                                     command=command,
+        wrapper = partial(Method.rag,command=command,
+                                     system_prompt=TEMPLATE[subset_name]["system_prompt"],
                                      input_template=TEMPLATE[subset_name]["cot_prompt"][0],input_template_keys=TEMPLATE[subset_name]["cot_prompt"][1],
                                      get_query_fn=get_query,retriever_name=RAG_SYSTEM_MAP[subset_name])
+    elif method == "rat":
+        wrapper = partial(Method.rat,command=command,
+                                     system_prompt=TEMPLATE[subset_name]["system_prompt"],
+                                     split_fn=partial(llm_split,command=command,verbos=test),
+                                     get_query_fn=get_query_naive,
+                                     retrieve_fn=partial(rag_retrieve,retriever_name=RAG_SYSTEM_MAP[subset_name],verbos=test),
+                                     draft_prompt_template=TEMPLATE[subset_name]["cot_prompt"][0],draft_template_keys=TEMPLATE[subset_name]["cot_prompt"][1],
+                                     refine_prompt_template=REFINE_PROMPT_TEMPLATE,refine_template_keys=REFINE_TEMPLATE_KEY,
+                                     summary_prompt_template=SUMMARY_PROMPT_TEMPLATE,summary_template_keys=SUMMARY_TEMPLATE_KEY,
+                                     verbos=test,
+                                     )
     else:
         raise ValueError(f"unknown method: {method}")
     
     # run
+    if test:
+        # 将输出打印到命令行中
+        import sys
+        with open(store_fold_path.parent/'log.txt', 'w') as f:
+            original_stdout = sys.stdout
+            sys.stdout = f
+            output = wrapper(test_dataset[112])
+            sys.stdout = original_stdout
+        return
     mp_utils.get_multiple_response(wrapper,[test_dataset[idx] for idx in range(test_dataset.num_rows)],batch_size=20,store_fold_path=store_fold_path,slow=True)
     return 
         
@@ -129,8 +196,8 @@ def gaokao_obj_test(subset_name:str,method:str,model_name="DeepSeek-V2.5",log_fo
 if __name__ =="__main__":
     dl = DatasetLoader()
     sub_tasks = [
-                    "2010-2022_Chemistry_MCQs-single_choice"
-                 ]
+         "2010-2022_Chemistry_MCQs-single_choice"
+    ]
     for sub_task in sub_tasks:
-        #gaokao_obj_run(sub_task,method="rag",model_name="DeepSeek-V2.5",dl=dl)
-        gaokao_obj_test(sub_task,method="rag",model_name="DeepSeek-V2.5",dl=dl)
+        gaokao_obj_run(sub_task,method="cot",model_name="DeepSeek-V2.5",dl=dl,)#test=True)
+        gaokao_obj_test(sub_task,method="cot",model_name="DeepSeek-V2.5",dl=dl)

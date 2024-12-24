@@ -19,19 +19,26 @@ os.environ["LANGCHAIN_TRACING_V2"] = "false"
 class RAG_SYSTEM:
     def __init__(self,
                  embedding_model_path="/data/lmy/models/text2vec-base-chinese",#"/data/lmy/models/all-MiniLM-L6-v2",
+                 split_method = "text_split",
                  chunk_size:int=500,chunk_overlap:int=50,add_start_index=True,
                  ):
-        self.text_splitter = RecursiveCharacterTextSplitter(
-                chunk_size=chunk_size, chunk_overlap=chunk_overlap, add_start_index=add_start_index
+        self.splitter = None
+        if split_method == "text_split":
+            self.splitter = RecursiveCharacterTextSplitter(
+                    chunk_size=chunk_size, chunk_overlap=chunk_overlap, add_start_index=add_start_index
+                )
+            self.split_method = f"text_s{chunk_size}_o{chunk_overlap}"
+        else:
+            headers_to_split_on = [
+                ("#", "Header 1"),
+                ("##", "Header 2"),
+                ("###", "Header 3"),
+            ]
+            self.splitter=MarkdownHeaderTextSplitter(
+                headers_to_split_on
             )
-        headers_to_split_on = [
-            ("#", "Header 1"),
-            ("##", "Header 2"),
-            ("###", "Header 3"),
-        ]
-        self.markdown_splitter=MarkdownHeaderTextSplitter(
-            headers_to_split_on
-        )
+            self.split_method = f"markdown"
+        self.embedding_model_name = str(Path(embedding_model_path).name)
         self.huggingface_embeddings = HuggingFaceEmbeddings(
             model_name=embedding_model_path,
             encode_kwargs ={'normalize_embeddings':True},
@@ -41,7 +48,7 @@ class RAG_SYSTEM:
         self.retriever = None 
         
     def get_retriever(self,retriever_name:str,method:str="markdown")->VectorStoreRetriever:
-        vectorstore_path = Path(f"data/vectorstore") / retriever_name
+        vectorstore_path = Path(f"data/vectorstore") / f"{retriever_name}-{self.embedding_model_name}-{self.split_method}"
         vectorstore = None
         if vectorstore_path.exists():
             vectorstore = Chroma(persist_directory=str(vectorstore_path), 
@@ -49,7 +56,7 @@ class RAG_SYSTEM:
         else:
             docs = self.get_docs(retriever_name,method)
             # 进行split
-            docs = self.text_splitter.split_documents(docs)
+            docs = self.splitter.split_documents(docs)
             vectorstore = Chroma.from_documents(documents=docs, 
                                     embedding=self.huggingface_embeddings,
                                     persist_directory=str(vectorstore_path),

@@ -6,11 +6,12 @@ from src.utils import api_utils
 from src.Method.rag import RAG_SYSTEM
 from typing import Callable
 import random
-
+from copy import deepcopy
 
 
 def plain(inputs:dict,system_prompt,command:dict,
-          input_template:str,input_template_keys:list,):
+          input_template:str,input_template_keys:list,
+          verbos=False):
     """use plain prompt
     输入dataset，prompt template
     输出final answer
@@ -29,7 +30,7 @@ def plain(inputs:dict,system_prompt,command:dict,
     }
     data.update(command)
     # 获取答案
-    content,token = api_utils.generate_qa(data)
+    content,token = api_utils.generate_qa(data,verbos=verbos)
     output = {
         "id":inputs["id"],
         "answer":content,
@@ -188,11 +189,95 @@ def rag(inputs:dict,system_prompt,command:dict,
     }
     return [output]
 
-def rat(inputs:dict,system_prompt,command:dict,
-        input_template:str,input_template_keys:list,
-        get_query_fn:Callable,retriever_name:str,
+def rat(inputs:dict,command:dict,
+        system_prompt:str,
+        split_fn:Callable,
+        get_query_fn:Callable,
+        retrieve_fn:Callable,
+        draft_prompt_template:str,draft_template_keys:list,
+        refine_prompt_template:str,refine_template_keys:list,
+        summary_prompt_template:str,summary_template_keys:list,
+        verbos=False
         ):
-    pass
+    """use rat method to get the refined chain-of-thought and the final answer
+    Args:
+        inputs (dict): 输入的材料
+        command (dict): LLM的命令设置
+        system_prompt (str): 系统提示信息
+        split_fn (Callable): 用于分割初稿的函数
+        get_query_fn (Callable): 用于生成查询的函数
+        retrieve_fn (Callable): 用于检索信息的函数
+        draft_prompt_template (str): 草稿提示模板
+        draft_template_keys (list): 草稿模板键
+        refine_prompt_template (str): 修改单步思考模板
+        refine_template_keys (list): 修改单步思考模板键
+        summary_prompt_template (str): 总结提示模板
+        summary_template_keys (list): 总结模板键
+        
+    """
+    history = {} #记录整个过程
+    total_tokens = {"input":0,"output":0,}
+    # 首先用LLM完成初稿
+    draft_outputs = plain(inputs,system_prompt,command,draft_prompt_template,draft_template_keys,verbos=verbos)
+    draft_answer = draft_outputs[0]["answer"]
+    history["draft"] = draft_answer
+    count_token(total_tokens,draft_outputs[0]["token"])
+    
+    # 然后用提供的方法对原始输入进行分割
+    split_thoughs_outputs = split_fn(draft_answer)
+    thoughts = split_thoughs_outputs["split_contents"]
+    history["split_contents"] = thoughts
+    count_token(total_tokens,split_thoughs_outputs.get("token",{}))
+    history["steps"] = []
+    
+    # 对每个thought进行检索-修改
+    refine_thoughts = ""
+    for idx,thought in enumerate(thoughts):
+        # 制作query
+        query_output = get_query_fn(thought)
+        if query_output is None:
+            continue
+        query = query_output["query"]
+        count_token(total_tokens,query_output.get("token",{}))
+        
+        # 检索
+        ref_content_output = retrieve_fn(query)
+        ref_content = ref_content_output["ref_content"]
+        count_token(total_tokens,ref_content_output.get("token",{}))
+        
+        # 根据检索信息修改答案
+        refine_inputs = {"question":inputs["question"],"past_thought":refine_thoughts,"thought":thought,"reference":ref_content,"id":inputs["id"]}
+        refine_thought_outputs = plain(refine_inputs,system_prompt,command,refine_prompt_template,refine_template_keys,verbos=verbos)
+        refine_thought = refine_thought_outputs[0]["answer"]
+        count_token(total_tokens,refine_thought_outputs[0].get("token",{}))
+        refine_thoughts +=  refine_thought + "\n\n"
+        
+        history["steps"].append({
+            "query":query,
+            "ref_content":ref_content,
+            "origin_thought":thought,
+            "refine_thought":refine_thought,
+        })
+    
+    summary_inputs = {"question":inputs["question"],"refine_thoughts":refine_thoughts,"id":inputs["id"]}
+    final_answer_outputs = plain(summary_inputs,system_prompt,command,summary_prompt_template,summary_template_keys,verbos=verbos)
+    final_answer = final_answer_outputs[0]["answer"]
+    history["final_answer"] = final_answer
+    count_token(total_tokens,final_answer_outputs[0]["token"])
+    
+    output = {
+        "id":inputs["id"],
+        "answer":final_answer,
+        "token":total_tokens,
+        "history":history,
+    }
+    return [output]
+    
+def count_token(total_tokens,new_tokens):
+    total_tokens["input"] += new_tokens.get("input",0)
+    total_tokens["output"] += new_tokens.get("output",0)
+    return total_tokens
+
 
 if __name__ == "__main__":
     pass

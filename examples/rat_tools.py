@@ -68,6 +68,7 @@ reference_prompt = """
 
 
 
+
 def get_weather(city:str):
     """
     Args:
@@ -88,8 +89,6 @@ def get_weather(city:str):
     else:
         weather_str = "没有检索到天气信息。"
     return (f"根据天气预报，这是{city}今天和后三天的天气：\n" + weather_str)
-
-
 
 
 def get_baike(name:str):
@@ -379,8 +378,6 @@ def routes_to_content(ref_routes:str, baike_jsons:list)->str:
             
         
     
-
-
 
 def get_revise_answer(client:OpenAI, system_prompt:str, question, answer, web_content):
     """
