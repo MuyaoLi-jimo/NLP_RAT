@@ -199,5 +199,5 @@ if __name__ =="__main__":
          "2010-2022_Chemistry_MCQs-single_choice"
     ]
     for sub_task in sub_tasks:
-        gaokao_obj_run(sub_task,method="cot",model_name="DeepSeek-V2.5",dl=dl,)#test=True)
-        gaokao_obj_test(sub_task,method="cot",model_name="DeepSeek-V2.5",dl=dl)
+        gaokao_obj_run(sub_task,method="rat",model_name="DeepSeek-V2.5",dl=dl,)#test=True)
+        gaokao_obj_test(sub_task,method="rat",model_name="DeepSeek-V2.5",dl=dl)
