@@ -20,6 +20,8 @@ def plain(inputs:dict,system_prompt,command:dict,
     # 使用input字典中相应的值来填充模板
     formatted_values = [inputs[key] for key in input_template_keys]
     user_prompt = input_template.format(*formatted_values)
+    if len(user_prompt)>=3500:
+        user_prompt = user_prompt[-3500:]
     conversations = [
         api_utils.create_system_message(system_prompt),
         api_utils.create_user_message(user_prompt)

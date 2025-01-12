@@ -11,6 +11,7 @@ from pathlib import Path, PosixPath
 from functools import partial
 import os
 from rich import console
+import argparse
 
 REFINE_PROMPT_TEMPLATE = """
 你现在正在进行一个思维链，你在刚才已经完成了前几步的思考与修改，
@@ -63,14 +64,19 @@ TEMPLATE = {
     },
     "2010-2022_Geography_MCQs-multi_question_choice": {
         "system_prompt": "你是一个非常优秀的高中生，正在作答一张地理试卷",
+        "plain_prompt":["请你做一道地理选择题\n请你直接判断答案，不要写出思考过程，并将答案写在【答案】和<eoa>之间。完整的题目回答的格式如下：\n【答案】 ... <eoa>\n请你严格按照上述格式作答。\n题目如下：{}",["question"]],
         "cot_prompt": ["请你做一道地理选择题，其中包含两到三个小题。\n请你一步一步思考。每一题你将从A，B，C，D中选出正确的答案，并写在【答案】和<eoa>之间。\n例如：（1）【答案】 A <eoa>\n（2）【答案】 B <eoa>\n请你严格按照上述格式作答。\n{}",["question"]],
+        "summary_prompt":["请你做一道地理选择题，题目如下: {}，你对ABCD一步一步的分析如下: A:{} B:{} C:{} D:{}\n 请根据之前几步的思考，从A，B，C，D中选出唯一正确的答案，并写在【答案】和<eoa>之间。\n回答的格式如下：：【答案】: ... <eoa>\n，再次重复题目：{}",["question","A","B","C","D","question"]]
     },
     "2010-2022_Political_Science_MCQs-single_choice":{
         "cot_prompt": ["请你做一道政治选择题\n请你一步一步思考并将思考过程写在【解析】和<eoe>之间。你将从A，B，C，D中选出正确的答案，并写在【答案】和<eoa>之间。\n例如：【答案】: A <eoa>\n完整的题目回答的格式如下：\n【解析】 ... <eoe>\n【答案】 ... <eoa>\n请你严格按照上述格式作答。\n题目如下：{}",["question"]],
     },
     "2010-2022_Physics_MCQs-multi_choice":{
         "system_prompt": "你是一个非常优秀的高中生，正在作答一张物理试卷",
+        "plain_prompt":["请你做一道物理选择题\n请你直接判断答案，不要写出思考过程，并将答案写在【答案】和<eoa>之间。完整的题目回答的格式如下：\n【答案】 ... <eoa>\n请你严格按照上述格式作答。\n题目如下：{}",["question"]],
         "cot_prompt": ["请你做一道物理选择题。\n请你一步一步思考并将思考过程写在【解析】和<eoe>之间。你将从A，B，C，D中选出所有符合题意的答案，并写在【答案】和<eoa>之间。\n例如：【答案】 AB <eoa>\n完整的题目回答的格式如下：\n【解析】 ... <eoe>\n【答案】... <eoa>\n请你严格按照上述格式作答。\n{}",["question"]],
+        "summary_prompt":["请你做一道物理选择题，题目如下: {}，你对ABCD一步一步的分析如下: A:{} B:{} C:{} D:{}\n 请根据之前几步的思考，从A，B，C，D中选出唯一正确的答案，并写在【答案】和<eoa>之间。\n回答的格式如下：：【答案】: ... <eoa>\n，再次重复题目：{}",["question","A","B","C","D","question"]],
+
     },
     "2010-2022_Chemistry_MCQs-single_choice": {
         "system_prompt": "你是一个非常优秀的高中生，正在作答一张化学试卷，现在需要你从A，B，C，D中选出唯一正确的答案，注意，只有一个正确答案",
@@ -105,27 +111,35 @@ TEMPLATE = {
 
 
 RAG_SYSTEM_MAP = {
+    "2010-2022_Physics_MCQs-multi_choice":"physics",
     "2010-2022_Chemistry_MCQs-single_choice":"chemistry",
+    "2010-2022_Geography_MCQs-multi_question_choice":"geography",
 }
 
 def get_query(inputs:dict)->str:
     return inputs["question"]
 
 
-def gaokao_obj_run(subset_name:str,method:str,model_name="DeepSeek-V2.5",log_fold:str = Path("logs"),dl:DatasetLoader = DatasetLoader(),test:bool=False):
+def gaokao_obj_run(subset_name:str,method:str,model_name="DeepSeek-V3",log_fold:str = Path("logs"),dl:DatasetLoader = DatasetLoader(),test:bool=False,api_base:str="https://api.deepseek.com/v1"):
     dataset = dl.get_dataset("gaokao_obj")
     test_dataset = dataset[subset_name]["test"]
-    store_fold_path=log_fold/"gaokao_obj"/method/f"{subset_name}.jsonl"
+    store_fold_path=log_fold/"gaokao_obj"/method/model_name/f"{subset_name}.jsonl"
     store_fold_path.parent.mkdir(parents=True,exist_ok=True)
     command = {
         "temperature":0.7,
         "max_tokens":1024,
     }
-    if model_name == "DeepSeek-V2.5":
+    if model_name == "DeepSeek-V3":
         command.update({
             "api_key":os.environ["DEEPSEEK_API_KEY"],
             "api_base":"https://api.deepseek.com/v1",
             "model_id":"deepseek-chat",
+        })
+    else:
+        command.update({
+            "api_key":"EMPTY",
+            "api_base":api_base,
+            "model_id":model_name,
         })
     # prepare for run
     wrapper = None
@@ -167,13 +181,13 @@ def gaokao_obj_run(subset_name:str,method:str,model_name="DeepSeek-V2.5",log_fol
             output = wrapper(test_dataset[112])
             sys.stdout = original_stdout
         return
-    mp_utils.get_multiple_response(wrapper,[test_dataset[idx] for idx in range(test_dataset.num_rows)],batch_size=20,store_fold_path=store_fold_path,slow=True)
+    mp_utils.get_multiple_response(wrapper,[test_dataset[idx] for idx in range(test_dataset.num_rows)],batch_size=40,store_fold_path=store_fold_path,slow=True)
     return 
         
-def gaokao_obj_test(subset_name:str,method:str,model_name="DeepSeek-V2.5",log_fold:PosixPath=Path("logs"),dl:DatasetLoader = DatasetLoader()):
+def gaokao_obj_test(subset_name:str,method:str,model_name="DeepSeek-V3",log_fold:PosixPath=Path("logs"),dl:DatasetLoader = DatasetLoader()):
     dataset = dl.get_dataset("gaokao_obj")
     test_dataset = dataset[subset_name]["test"]
-    data_path = log_fold/"gaokao_obj"/method/f"{subset_name}.jsonl"
+    data_path = log_fold/"gaokao_obj"/method/model_name/f"{subset_name}.jsonl"
     file_answers = file_utils.load_jsonl(data_path)
     # map to the format the datasetloader need
     answers = {d["id"]:d["answer"] for d in file_answers if d.get("success","none")=="none"}
@@ -194,10 +208,28 @@ def gaokao_obj_test(subset_name:str,method:str,model_name="DeepSeek-V2.5",log_fo
     console.Console().log(f"model score: {model_score}, total score: {total_score}")
 
 if __name__ =="__main__":
+    
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--model_name',type=str,default="Llama3-8B-Chinese-Chat")
+    parser.add_argument('--api_base',type=str,default="http://10.0.2.26:9401/v1")
+    args = parser.parse_args()
+    api_base = args.api_base
+    model_name = args.model_name   #"Llama3-8B-Chinese-Chat"
+    
     dl = DatasetLoader()
+    
     sub_tasks = [
-         "2010-2022_Chemistry_MCQs-single_choice"
+         "2010-2022_Chemistry_MCQs-single_choice",
+         "2010-2022_Physics_MCQs-multi_choice",
+         "2010-2022_Geography_MCQs-multi_question_choice",
     ]
-    for sub_task in sub_tasks:
-        gaokao_obj_run(sub_task,method="rat",model_name="DeepSeek-V2.5",dl=dl,)#test=True)
-        gaokao_obj_test(sub_task,method="rat",model_name="DeepSeek-V2.5",dl=dl)
+    methods = [
+        "plain",
+        "cot",
+        "rag",
+        "rat",
+    ]
+    for method in methods:
+        for sub_task in sub_tasks:
+            gaokao_obj_run(sub_task,method=method,model_name=model_name,dl=dl,api_base=api_base)#test=True)
+            gaokao_obj_test(sub_task,method=method,model_name=model_name,dl=dl)

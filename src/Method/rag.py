@@ -89,13 +89,13 @@ class RAG_SYSTEM:
                 bs_kwargs={"parse_only": bs4_strainer},
             )
         docs = loader.load()
-        print(len(docs))
+        #print(len(docs))
         #import pdb;pdb.set_trace()
         return docs
 
 if __name__ =="__main__":
     rag_system = RAG_SYSTEM()
-    final = rag_system.retrieve("1. （3 分）下列反应中, 可用离子方程式 $\\mathrm{H}^{+}+\\mathrm{OH}^{-}=\\mathrm{H}_{2} \\mathrm{O}$ 表示的是（ ）\nA. $\\mathrm{NH}_{4} \\mathrm{Cl}+\\mathrm{NaOH} \\stackrel{\\triangle}{=} \\mathrm{NaCl}+\\mathrm{NH}_{3} \\uparrow+\\mathrm{H}_{2} \\mathrm{O}$\nB. $\\mathrm{Mg}(\\mathrm{OH})_{2}+2 \\mathrm{HCl}=\\mathrm{MgCl}_{2}+2 \\mathrm{H}_{2} \\mathrm{O}$\nC. $\\mathrm{NaOH}+\\mathrm{NaHCO}_{3}=\\mathrm{Na}_{2} \\mathrm{CO}_{3}+\\mathrm{H}_{2} \\mathrm{O}$\nD. $\\mathrm{NaOH}+\\mathrm{HNO}_{3}=\\mathrm{NaNO}_{3}+\\mathrm{H}_{2} \\mathrm{O}$\n",retriever_name="chemistry")
+    final = rag_system.retrieve("12. (18 分) 小球 $\\mathrm{A}$ 和 $\\mathrm{B}$ 的质量分别为 $\\mathrm{m}_{\\mathrm{A}}$ 和 $\\mathrm{m}_{\\mathrm{B}}$, 且 $\\mathrm{m}_{\\mathrm{A}}>\\mathrm{m}_{\\mathrm{B}}$. 在某高度处将 $\\mathrm{A}$ 和 $\\mathrm{B}$ 先后从静止释放. 小球 $\\mathrm{A}$ 与水平地面碰撞后向上弹回, 在释放处的下方 与释放处距离为 $\\mathrm{H}$ 的地方恰好与正在下落的小球 $\\mathrm{B}$ 发生正碰. 设所有碰撞都 是弹性的, 碰撞时间极短. 求小球 $\\mathrm{A} 、 \\mathrm{~B}$ 碰撞后 $\\mathrm{B}$ 上升的最大高度.\n",retriever_name="physics")
     for d in final:
         print(d.page_content)
         print("_________________________")
