@@ -27,8 +27,6 @@ with gr.Blocks(title="RAT leaderboard") as page:
 
 
 
-    
-
 page.launch(share=True,
             #auth=("admin", "craftjarvis"),
             server_port=8081,)
