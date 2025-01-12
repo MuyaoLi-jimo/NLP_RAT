@@ -2,4 +2,3 @@ final_proj.egg-info/
 data/
 __pycache__/
 *.bak
-logs/
