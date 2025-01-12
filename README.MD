@@ -1,23 +1,33 @@
 # NLP_RAG
 
-## Overview
-This repository contains code and experimental setups for applying advanced prompting techniques to improve the performance of the deepseek-v2 model on the  MBPP datasets. The main focus is on comparing Chain of Thought prompting (CoT), In-context Learning (ICL), and Reflexion against naïve prompting techniques.
 
 ## Repository Structure
-
-- `/NLP_RAG`
+- `/src`
   - `/dataset`
-    - `/gsm8k` - Contains the GSM8k dataset used for experiments.
-    - `/mbpp` - Contains the MBPP dataset used for experiments.
-- `/log` - Contains log files generated during the execution of experiments.
-- `/utils`
-  - `api_utils.py` - Utility functions for interacting with the Deepseek-v2 API.
-  - `file_utils.py` - Functions for file manipulation and storage handling.
-  - `mp_utils.py` - Utilities for multiprocessing and data handling.
-- `DataHelper.py` - Helper functions for data loading and examining.
-- `mbpp.py` - Script for testing MBPP dataset .
-- `my_method.py` - Implementation of custom prompting methods.
-- `rag_prepare.py` - Preparation scripts for RAG (Retrieval-Augmented Generation)
+    - `collect_data.py` - collect data api
+    - `DataHelper.py`  
+  - `/evaluate`
+    - `evaluate.py`  - evaluate api
+  - `/Method`
+    - `Method.py`    - function api
+    - `rag.py`       - rag system
+    - `rat_tools.py` - the tool for RAT
+  - `/utils`
+    - `api_utils.py`  - Utility functions for interacting with the Deepseek-v2 API.
+    - `file_utils.py` - Functions for file manipulation and storage handling.
+    - `mp_utils.py`   - Utilities for multiprocessing and data handling.
+  - `/visial`
+  + `gaokao_obj.py`   - the main tunnel for gaokao benchmark
+  + `mbpp.py`
+- `/examples`
+  - `rat_tools.py`
+  - `techniques.py`
+  - `test.ipynb`
+- `/docs`
+  - `proposal.md`
+- `/lib`
+  - `/GAOKAO-Bench`
+- `/logs`
 - `.gitignore` - Specifies intentionally untracked files to ignore.
 - `README.MD` - Describes the project, its structure, and how to run the scripts.
 - `requirements.txt` - Lists all the dependencies necessary to run the project.
@@ -25,13 +35,13 @@ This repository contains code and experimental setups for applying advanced prom
 ## Setup and Installation
 
 1. Clone the repository:
-`!pip install -r requirements`
+`$ pip install -r requirements`
 2. Add the api_key:
-`!export DEEPSEEK_API_KEY="XXXXXX"`
+`$ export DEEPSEEK_API_KEY="XXXXXX"`
 3. run the code:
-`!python mbpp.py`
+`$ python gaokao_obj.py --model_name DeepSeek-V3`
 
-## resource
+## rag resource
 - chemistry
   - [https://github.com/Seeridia/Chemistry-Note](https://github.com/Seeridia/Chemistry-Note)
   - [https://www.hxzxs.cn/view-20008-1.html](https://www.hxzxs.cn/view-20008-1.html)
