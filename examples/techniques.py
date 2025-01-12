@@ -1,6 +1,6 @@
 import json
 from openai import OpenAI
-from rat_tools import *
+from .rat_tools import *
 from datetime import datetime
 
 
